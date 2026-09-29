@@ -7,4 +7,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 EXPOSE 8080
 
-CMD ["bash", "-c", "curl -LsSf https://llama.app/install.sh | sh && ~/.llama-app/llama serve -hf unsloth/SmolLM2-135M-Instruct-GGUF:Q4_K_M --port 8080 --host 0.0.0.0 -ngl all"]
+CMD ["bash", "-c", "curl -LsSf https://llama.app/install.sh | sh && ~/.llama-app/llama serve -hf Qwen/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M --port 8080 --host 0.0.0.0 -ngl all"]
