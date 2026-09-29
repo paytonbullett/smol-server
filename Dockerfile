@@ -1,28 +1,21 @@
-FROM ubuntu:22.04
+FROM public.ecr.aws/lambda/python:3.10
 
-ENV DEBIAN_FRONTEND=noninteractive
+# Install system dependencies
+RUN yum install -y gcc gcc-c++ make git
 
-# Install dependencies, git, cmake, build-tools, and curl
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    build-essential \
-    cmake \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Install the CPU version of llama-cpp-python and FastAPI for the server framework
+RUN pip install --no-cache-dir fastapi uvicorn[standard] huggingface_hub llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu/
 
-# Clone and build llama.cpp directly so we get the standard clean HTTP server (llama-server)
-RUN git clone https://github.com/ggerganov/llama.cpp.git && \
-    cd llama.cpp && \
-    cmake -B build && \
-    cmake --build build --config Release -j4
+# Download the Qwen 1.5B GGUF model during build time so it's baked in
+RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='Qwen/Qwen2.5-1.5B-Instruct-GGUF', filename='qwen2.5-1.5b-instruct-q4_k_m.gguf', local_dir='/var/task')"
 
-# Copy the AWS Lambda Web Adapter
+# Copy the AWS Lambda Web Adapter extension
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
 
-EXPOSE 8080
+# Copy a tiny clean python script that serves the model over port 8080
+COPY server.py /var/task/server.py
+
 ENV PORT=8080
 ENV AWS_LWA_ASYNC_INIT=true
 
-# Run the standard llama-server binary directly, downloading the model on the fly
-CMD ["/llama.cpp/build/bin/llama-server", "-hf", "Qwen/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M", "--port", "8080", "--host", "0.0.0.0", "-c", "2048", "-t", "4"]
+CMD ["python3", "server.py"]
