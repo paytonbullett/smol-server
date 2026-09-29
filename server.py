@@ -1,51 +1,50 @@
-import os
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
 from llama_cpp import Llama
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
 
-app = FastAPI()
+# Global variable to hold the model in memory
+llm = None
 
-# Load the model from the local directory on startup
-print("Loading model...")
-llm = Llama(
-    model_path="/var/task/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-    n_ctx=2048,
-    n_threads=4,
-    verbose=False
-)
-print("Model loaded successfully!")
+# This tells FastAPI to load the model ONLY AFTER the web server has booted on port 8080
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global llm
+    print("Starting to load the Qwen model into memory... this will take a moment.")
+    
+    # Load the model here so it doesn't block Uvicorn startup
+    llm = Llama(
+        model_path="/var/task/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        n_ctx=2048, 
+        verbose=False # Set to True if you want internal llama.cpp logs
+    )
+    print("Model loaded successfully!")
+    
+    yield
+    
+    # Clean up when the container shuts down
+    llm = None
 
-class ChatRequest(BaseModel):
-    messages: list
+# Pass the lifespan function into FastAPI
+app = FastAPI(lifespan=lifespan)
 
-@app.post("/v1/chat/completions")
-def chat_completions(body: ChatRequest):
-    try:
-        # Convert OpenAI format messages to prompt format
-        prompt = ""
-        for msg in body.messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
-        prompt += "<|im_start|>assistant\n"
+# Define a basic request schema
+class GenerateRequest(BaseModel):
+    prompt: str
+    max_tokens: int = 100
 
-        output = llm(
-            prompt,
-            max_tokens=256,
-            stop=["<|im_end|>"]
-        )
-        
-        reply = output["choices"][0]["text"]
-        
-        # Return OpenAI-compatible response structure
-        return {
-            "choices": [{
-                "message": {"role": "assistant", "content": reply}
-            }]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/")
+def health_check():
+    return {"status": "ready", "model_loaded": llm is not None}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+@app.post("/generate")
+def generate(request: GenerateRequest):
+    if not llm:
+        return {"error": "Model is still loading into RAM, please try again in a few seconds."}
+    
+    # Run inference
+    output = llm(
+        prompt=request.prompt, 
+        max_tokens=request.max_tokens
+    )
+    return {"response": output}
