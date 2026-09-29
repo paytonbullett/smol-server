@@ -24,8 +24,9 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt
 # 7. Copy your application code
 COPY server.py /var/task/server.py
 
-# 8. Set the Port
+# 8. Configure the Web Adapter to allow long startup times
 ENV PORT=8080
+ENV AWS_LWA_ASYNC_INIT=true
 
-# 9. Start Uvicorn directly (No ENTRYPOINT hacks needed anymore)
+# 9. Start Uvicorn directly
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
