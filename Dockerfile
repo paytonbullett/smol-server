@@ -10,8 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Copy AWS Lambda Web Adapter extension binary from correct ECR namespace (awsguru)
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/aws-lambda-adapter
 
 # 3. Grant executable permissions to the extension binary
 RUN chmod +x /opt/extensions/aws-lambda-adapter
