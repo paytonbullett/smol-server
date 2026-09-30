@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Download AWS Lambda Web Adapter directly from GitHub Releases (bypasses ECR rate limits)
+# 2. Download AWS Lambda Web Adapter v0.8.4 directly from GitHub Releases
 RUN mkdir -p /opt/extensions && \
-    curl -fsSL -o /opt/extensions/lambda-adapter https://github.com/awslabs/aws-lambda-web-adapter/releases/download/v1.1.0/lambda-adapter-x86_64 && \
+    curl -fsSL -o /opt/extensions/lambda-adapter https://github.com/awslabs/aws-lambda-web-adapter/releases/download/v0.8.4/lambda-adapter-x86_64 && \
     chmod +x /opt/extensions/lambda-adapter
 
 # 3. Install llama.app runner
