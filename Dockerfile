@@ -1,19 +1,21 @@
 FROM ubuntu:22.04
 
-# 1. Run the official auto-detect install script (your exact command)
-RUN curl -LsSf https://llama.app/install.sh | sh
+ENV DEBIAN_FRONTEND=noninteractive
 
-# 2. Download the model DURING the build so it is baked into the image
-# (If we do not do this, Lambda will try to download 1GB every time it wakes up)
-RUN curl -L -o /model.gguf https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+# Install bare minimum packages needed to fetch and decompress
+RUN apt-get update && apt-get install -y curl zstd procps && rm -rf /var/lib/apt/lists/*
 
-# 3. Attach the AWS Web Adapter to proxy traffic to the binary
+# Run installer with -k to skip SSL checks completely
+RUN curl -kLsSf https://llama.app/install.sh | sh
+
+# Download model with -k to skip SSL checks completely
+RUN curl -kL -o /model.gguf https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+
+# Attach AWS Lambda Web Adapter
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
 
-# 4. Configure the adapter and add the installed binary to the system PATH
 ENV PORT=8080
 ENV AWS_LWA_ASYNC_INIT=true
-ENV PATH="/root/.llama-app:${PATH}"
+ENV PATH="/root/.llama-app:/root/.local/bin:${PATH}"
 
-# 5. Run the native C++ web server directly
 CMD ["llama", "serve", "-m", "/model.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "2048"]
