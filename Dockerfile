@@ -2,7 +2,7 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1. Install bare minimum dependencies (including ca-certificates for secure HTTPS)
+# 1. Install bare minimum dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Copy AWS Lambda Web Adapter extension binary
-COPY --from=public.ecr.aws/awslabs/aws-lambda-web-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
+# 2. Copy AWS Lambda Web Adapter extension binary from correct ECR namespace (awsguru)
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
 
-# 3. Explicitly grant executable permissions to the extension binary
+# 3. Grant executable permissions to the extension binary
 RUN chmod +x /opt/extensions/aws-lambda-adapter
 
-# 4. Install llama.app (C++ binary runner)
+# 4. Install llama.app runner
 RUN curl -fsSL https://llama.app/install.sh | sh
 
 # 5. Export path for the llama binary
