@@ -29,4 +29,4 @@ ENV PORT=8080
 ENV AWS_LWA_ASYNC_INIT=true
 
 # 8. Launch native C++ server
-CMD ["llama", "serve", "-m", "/model.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "4096"]
+CMD ["llama", "serve", "-m", "/model.gguf", "--host", "127.0.0.1", "--port", "8080", "-c", "4096"]
