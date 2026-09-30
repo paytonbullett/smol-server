@@ -1,29 +1,22 @@
-FROM python:3.10-slim
+FROM ubuntu:22.04
 
-RUN apt-get update && \
-    apt-get install -y gcc g++ make git && \
-    rm -rf /var/lib/apt/lists/*
+# 1. Install curl and SSL certificates
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip
+# 2. Run the official auto-detect install script (your exact command)
+RUN curl -LsSf https://llama.app/install.sh | sh
 
-RUN pip install --no-cache-dir fastapi uvicorn huggingface_hub llama-cpp-python \
-    --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu/
+# 3. Download the model DURING the build so it is baked into the image
+# (If we do not do this, Lambda will try to download 1GB every time it wakes up)
+RUN curl -L -o /model.gguf https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
 
-WORKDIR /var/task
-
-# Download model
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='Qwen/Qwen2.5-1.5B-Instruct-GGUF', filename='qwen2.5-1.5b-instruct-q4_k_m.gguf', local_dir='/var/task')"
-
-# AWS Lambda Web Adapter
+# 4. Attach the AWS Web Adapter to proxy traffic to the binary
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/aws-lambda-adapter
 
-# Copy both application code and debug script
-COPY server.py /var/task/server.py
-COPY debug_launcher.py /var/task/debug_launcher.py
-
+# 5. Configure the adapter and add the installed binary to the system PATH
 ENV PORT=8080
 ENV AWS_LWA_ASYNC_INIT=true
-ENV PYTHONUNBUFFERED=1
+ENV PATH="/root/.llama-app:${PATH}"
 
-# Run the debug launcher instead of raw uvicorn
-CMD ["python3", "/var/task/debug_launcher.py"]
+# 6. Run the native C++ web server directly
+CMD ["llama", "serve", "-m", "/model.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "2048"]
